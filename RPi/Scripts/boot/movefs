@@ -1,0 +1,149 @@
+#!/bin/sh
+
+### Remove Unused Packages ###
+clear
+echo "Removing Unused Packages."
+apt-get update
+echo ""
+apt-get remove -y epiphany-browser netsurf-gtk xpdf libreoffice libreoffice-gtk timidity libreoffice-sdbc-hsqldb sonic-pi dillo wolfram-engine smartsim penguinspuzzle minecraft-pi python-minecraftpi claws-mail scratch nuscratch greenfoot bluej piclone nodered
+echo ""
+apt-get autoremove -y
+echo "Removed Unused Packages."
+sleep 3
+
+### Upgrade Packages ###
+clear
+echo "Upgrading Installed Packages / Firmware."
+apt-get install -y pv zerofree
+echo ""
+apt-get upgrade -y
+echo ""
+apt-get purge
+echo ""
+apt-get autoclean
+echo ""
+apt-get clean all
+echo ""
+apt-get update
+echo "Packages / Firmware Upgraded."
+echo ""
+echo "Removing upgrade conf-file backups."
+rm -vdrf /home/pi/oldconffiles
+echo "Old Conf Files Removed."
+echo "Moving On."
+sleep 3
+
+### Colorize Root User's BASH ###
+clear
+echo "Colorizing Root's BASH"
+echo "Backup old /root/.bashrc"
+mv /root/.bashrc /root/.bashrc.orig
+echo "/root/.bashrc -> /root/.bashrc.orig"
+echo ""
+echo "Writing new /root/.bashrc."
+cp /home/pi/.bashrc /root/.bashrc
+echo "New /root/.bashrc Written."
+echo "Root's BASH is now colorized on reboot."
+sleep 3
+
+### Fix /etc/fstab Before Moving rootfs ###
+clear
+echo "Fixing /etc/fstab Before Moving rootfs."
+echo "Backup Old /etc/fstab"
+mv /etc/fstab /etc/fstab.orig
+echo "/etc/fstab -> /etc/fstab.orig"
+echo ""
+echo "Writing New /etc/fstab."
+echo "/dev/mmcblk0p1	/boot	vfat	defaults		0 2
+/dev/sda1	/	ext4	defaults,noatime	0 1
+proc		/proc	proc	defaults		0 0
+
+# a swapfile is not a swap partition, no line here use
+#	dphys-swapfile swap[on|off]
+" >> /etc/fstab
+echo "New /etc/fstab written."
+echo "/etc/fstab Fixed."
+sleep 3
+
+### Fix The SwapSpace Before Moving rootfs###
+clear
+echo "Fixing SwapSpace before moving rootfs."
+echo "Creating New SwapSpace."
+mkdir /.swap
+echo "Backup /etc/dphys-swapfile."
+mv /etc/dphys-swapfile /etc/dphys-swapfile.orig
+echo "/etc/dphys-swapfile -> /etc/dphys-swapfile.orig"
+echo "Write new /etc/dphys-swapfile."
+echo "CONF_SWAPFILE=/.swap/swap
+CONF_SWAPSIZE=1024
+" >> /etc/dphys-swapfile
+echo "SwapSpace Fixed."
+sleep 3
+
+### Delete Old /dev/sda1 ###
+clear
+echo "Removing partition(s) from /dev/sda."
+umount /dev/sda1
+echo "d
+w" | fdisk /dev/sda
+echo "/dev/sda1 Partition Removed."
+sleep 3
+
+### Create New /dev/sda1 ###
+clear
+echo "Creating new partition on /dev/sda."
+echo "n
+p
+1
+
+
+w" | fdisk /dev/sda
+echo "/dev/sda1 Partition Created."
+sleep 3
+
+### Format /dev/sda1 ###
+clear
+echo "Formatting /dev/sda1."
+mke2fs -t ext4 -L root /dev/sda1
+echo "/dev/sda1 Formatted."
+sleep 3
+
+### Move rootfs ###
+clear
+echo "Moving root filesystem (this will take some time)."
+dd if=/dev/mmcblk0p2 bs=4M | pv --size 8G | dd of=/dev/sda1 bs=4M iflag=fullblock
+echo "Root filessytem moved."
+sleep 3
+
+### Repair /dev/sda1 ###
+clear
+echo "Fixing /dev/sda1 filesystem."
+e2fsck -fy /dev/sda1
+echo "New root filesystem fixed."
+sleep 3
+
+### Resize /dev/sda1 ###
+clear
+echo "Resizing /dev/sda1."
+resize2fs /dev/sda1
+echo "New root filesystem resized to fill /dev/sda1 parition."
+sleep 3
+
+### Fix R-Pi's Boot Sequence ###
+clear
+echo "Fixing boot commands to use /dev/sda1 as the root filesystem."
+echo "Backup old /boot/cmdline.txt"
+mv /boot/cmdline.txt /boot/cmdline.txt.orig
+echo "/boot/cmdline.txt -> /boot/cmdline.txt.orig"
+echo ""
+echo "Writing new /boot/cmdline.txt."
+echo "dwc_otg.lpm_enable=0 console=serial0,115200 console=tty1 root=/dev/sda1 rootfstype=ext4 elevator=deadline fsck.repair=yes rootwait
+" >> /boot/cmdline.txt
+echo "New /boot/cmdline.txt written."
+echo "New root filesystem added as boot."
+sleep 3
+
+### Reboot ###
+clear
+echo "Rebooting."
+reboot
